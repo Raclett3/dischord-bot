@@ -1,16 +1,39 @@
 import * as Discord from "discord.js";
 
 async function onMessage(message: Discord.Message) {
+    function send(content: string) {
+        message.channel.send(content);
+    }
+
     const prefix = "dc!";
 
     if (message.author.bot) {
         return;
     }
 
-    const content = message.content;
+    const lowerContent = message.content.toLowerCase();
 
-    if (content.slice(0, 3) === prefix) {
-        message.reply(message.content);
+    if (lowerContent.slice(0, 3) !== prefix) {
+        return;
+    }
+
+    const command = (lowerContent.slice(3).match(/^[a-z]+/) || [""])[0];
+
+    switch (command) {
+        case "help": {
+            const help = [
+                "Dischord",
+                `${prefix}help Dischordのヘルプを表示`,
+                "Dischord MML 文法",
+            ];
+            send(help.join("\n"));
+            break;
+        }
+
+        default: {
+            send("不明なコマンドです");
+            break;
+        }
     }
 }
 
