@@ -2,6 +2,8 @@
     "defaultSeverity": "error",
     "extends": ["tslint:recommended"],
     "rules": {
-        "no-console": false
+        "no-console": false,
+        "object-literal-sort-keys": false,
+        "interface-over-type-literal": false
     }
 }
