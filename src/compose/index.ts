@@ -42,19 +42,22 @@ export function compose(source: string): Buffer {
         }
     }
 
-    const tokens = source.match(/([a-g][+-]?|r)[0-9]*\.?(&[0-9]*\.?)*|[<>]|t[0-9]+(\.[0-9]+)?/g) || [];
+    const pattern = /([a-g][+-]?|r)[0-9]*\.?(&[0-9]*\.?)*|[<>]|t[0-9]+(\.[0-9]+)?|l[0-9]+\.?(&[0-9]+\.?)*/g;
+    const tokens = source.match(pattern) || [];
     const sampling = 44100;
     const composed: number[] = [];
     let length = 0;
     let position = 0;
     let tempo = 120;
     let octave = 0;
+    let defaultNoteLength = "8";
 
     for (const token of tokens) {
         switch (true) {
             case token[0] >= "a" && token[0] <= "g": {
                 const scale = token[0] + (token[1] === "-" || token[1] === "+" ? token[1] : "");
-                const noteLength = Math.floor(parseLength(token.slice(scale.length), tempo) * sampling);
+                const lengthString = token.slice(scale.length) || defaultNoteLength;
+                const noteLength = Math.floor(parseLength(lengthString, tempo) * sampling);
                 const frequency = frequencyScale[scale] * (2 ** octave);
 
                 for (let i = 0; i <= noteLength; i++) {
@@ -65,12 +68,18 @@ export function compose(source: string): Buffer {
             }
 
             case token[0] === "r": {
-                const noteLength = Math.floor(parseLength(token.slice(1), tempo) * sampling);
+                const lengthString = token.slice(1) || defaultNoteLength;
+                const noteLength = Math.floor(parseLength(lengthString, tempo) * sampling);
 
                 for (let i = 0; i <= noteLength; i++) {
                     pushOverride(position + i, 0);
                 }
                 position += noteLength;
+                break;
+            }
+
+            case token[0] === "l": {
+                defaultNoteLength = token.slice(1);
                 break;
             }
 

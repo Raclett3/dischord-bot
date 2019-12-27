@@ -30,6 +30,7 @@ async function onMessage(message: Discord.Message) {
                 "以下の文字列を連ねて記述します。",
                 "CDEFGABR ドレミファソラシと休符に対応しています。数字を後ろにつけるとn分音符を表現します。",
                 "T テンポを後ろに表記された値に変更します。",
+                "L デフォルトの音符の長さを変更します。",
                 "(他のMMLと互換性はありません。)",
             ];
             send(help.join("\n"));
