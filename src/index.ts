@@ -1,4 +1,5 @@
 import * as Discord from "discord.js";
+import {ReadableStreamBuffer} from "stream-buffers";
 import {compose} from "./compose";
 
 function appendRiffHeader(buffer: Buffer, sampling = 44100) {
@@ -18,6 +19,35 @@ function appendRiffHeader(buffer: Buffer, sampling = 44100) {
     header.writeUInt32LE(length * 2, 40);
 
     return Buffer.concat([header, buffer]);
+}
+
+type QueueItem = {
+    channel: Discord.VoiceChannel,
+    stream: ReadableStreamBuffer,
+};
+
+const queue: QueueItem[] = [];
+
+function playStream(channel: Discord.VoiceChannel, stream: ReadableStreamBuffer) {
+    async function processQueue() {
+        if (queue.length === 0) {
+            return;
+        }
+
+        queue[0].channel.join().then((connection) => {
+            const dispatcher = connection.playConvertedStream(queue[0].stream);
+            dispatcher.on("end", () => {
+                connection.disconnect();
+                queue.shift();
+                processQueue();
+            });
+        });
+    }
+
+    queue.push({channel, stream});
+    if (queue.length === 1) {
+        processQueue();
+    }
 }
 
 async function onMessage(message: Discord.Message) {
@@ -45,6 +75,7 @@ async function onMessage(message: Discord.Message) {
                 "Dischord",
                 `${prefix}help Dischordのヘルプを表示`,
                 `${prefix}play [MML] MMLを音声ファイルに書き出し`,
+                `${prefix}vcplay [MML] MMLをVCで再生`,
                 "Dischord MML 文法",
                 "以下の文字列を連ねて記述します。",
                 "CDEFGABR ドレミファソラシと休符に対応しています。数字を後ろにつけるとn分音符を表現します。",
@@ -73,6 +104,20 @@ async function onMessage(message: Discord.Message) {
                     name: "result.wav",
                 },
             });
+            break;
+        }
+
+        case "vcplay": {
+            if (!message.member.voiceChannel) {
+                send("あなたはVCに参加していません。");
+                break;
+            }
+            send("生成しています。");
+            const composed = compose(lowerContent.slice(prefix.length + command.length), 96000);
+            const stream = new ReadableStreamBuffer();
+            stream.push(composed);
+            playStream(message.member.voiceChannel, stream);
+            send("成功しました。結果はキューに追加され、VCにて順次再生されます。");
             break;
         }
 

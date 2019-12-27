@@ -9,6 +9,10 @@ Discord BotとしてMML(Music Macro Language)を提供します。
 
 - Node.js
 
+- Python
+
+- ffmpeg
+
 ## 使い方
 
 ### Botの起動
