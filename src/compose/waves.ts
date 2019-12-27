@@ -1,5 +1,5 @@
 export function sine(frequency: number, position: number) {
-    return Math.sin(position * frequency * Math.PI / 2);
+    return Math.sin(position * frequency * Math.PI);
 }
 
 export function square(frequency: number, position: number, duty: number = 0.5) {
