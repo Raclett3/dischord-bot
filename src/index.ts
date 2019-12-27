@@ -1,3 +1,4 @@
+import {spawn} from "child_process";
 import * as Discord from "discord.js";
 import {ReadableStreamBuffer} from "stream-buffers";
 import {compose} from "./compose";
@@ -50,6 +51,32 @@ function playStream(channel: Discord.VoiceChannel, stream: ReadableStreamBuffer)
     }
 }
 
+async function convertToMp3(wavBuffer: Buffer) {
+    return await new Promise<Buffer>((resolve) => {
+        const ffmpeg = spawn("ffmpeg", [
+            "-i", "pipe:0",
+            "-vn",
+            "-f", "mp3",
+            "-ac", "1",
+            "-ab", "192k",
+            "-ar", "44100",
+            "-acodec", "libmp3lame",
+            "pipe:1",
+        ], {
+            stdio: ["pipe", "pipe", "pipe"],
+        });
+        let mp3 = Buffer.alloc(0);
+        ffmpeg.stdout.on("data", (data: Buffer) => {
+            mp3 = Buffer.concat([mp3, data]);
+        });
+        ffmpeg.on("close", () => {
+            resolve(mp3);
+        });
+        ffmpeg.stdin.write(wavBuffer);
+        ffmpeg.stdin.end();
+    });
+}
+
 async function onMessage(message: Discord.Message) {
     function send(content: string, options?: Discord.MessageOptions) {
         message.channel.send(content, options);
@@ -100,8 +127,8 @@ async function onMessage(message: Discord.Message) {
             const composed = compose(lowerContent.slice(prefix.length + command.length));
             send("成功しました。", {
                 file: {
-                    attachment: appendRiffHeader(composed),
-                    name: "result.wav",
+                    attachment: await convertToMp3(appendRiffHeader(composed)),
+                    name: "result.mp3",
                 },
             });
             break;
