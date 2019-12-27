@@ -1,5 +1,10 @@
 import * as waves from "./waves";
 
+type Stack = {
+    index: number,
+    count: number,
+};
+
 type Wave =
     "square50" |
     "square25" |
@@ -51,10 +56,11 @@ export function compose(source: string): Buffer {
         }
     }
 
-    const pattern = /([a-g][+-]?|r)[0-9]*\.?(&[0-9]*\.?)*|[<>]|[tv][0-9]+(\.[0-9]+)?|l[0-9]+\.?(&[0-9]+\.?)*|@[0-9]+/g;
+    const pattern = /([a-g][+-]?|r)[0-9]*\.?(&[0-9]*\.?)*|[<>\[]|\][0-9]*|[tv][0-9]+(\.[0-9]+)?|l[0-9]+\.?(&[0-9]+\.?)*|@[0-9]+/g;
     const tokens = source.match(pattern) || [];
     const sampling = 44100;
     const composed: number[] = [];
+    const stack: Stack[] = [];
     let length = 0;
     let position = 0;
     let tempo = 120;
@@ -63,7 +69,8 @@ export function compose(source: string): Buffer {
     let defaultNoteLength = "8";
     let waveType: Wave = "square50";
 
-    for (const token of tokens) {
+    for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
+        const token = tokens[tokenIndex];
         switch (true) {
             case token[0] >= "a" && token[0] <= "g": {
                 const scale = token[0] + (token[1] === "-" || token[1] === "+" ? token[1] : "");
@@ -143,6 +150,35 @@ export function compose(source: string): Buffer {
                     "whitenoise",
                 ];
                 waveType = waveTypes[parseInt(token.slice(1), 10)] || "square50";
+                break;
+            }
+
+            case token[0] === "[": {
+                stack.push({
+                    index: tokenIndex,
+                    count: -1,
+                });
+
+                break;
+            }
+
+            case token[0] === "]": {
+                const top = stack.pop();
+                if (!top) {
+                    break;
+                }
+
+                const count = parseInt(token.slice(1), 10) || 1;
+                if (top.count === -1) {
+                    top.count = count;
+                }
+                top.count--;
+
+                if (top.count > 0) {
+                    tokenIndex = top.index;
+                    stack.push(top);
+                }
+
                 break;
             }
         }
