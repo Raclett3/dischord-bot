@@ -28,7 +28,7 @@ function parseLength(length: string, tempo: number) {
     const tokens = length.split("&");
     return tokens.reduce<number>((acc, token) => {
             const dotted = token.slice(-1) === ".";
-            return acc + 240 / tempo / (parseInt(dotted ? token.slice(0, -1) : token, 10) * (dotted ? 1.5 : 1));
+            return acc + 240 / tempo / parseInt(dotted ? token.slice(0, -1) : token, 10) * (dotted ? 1.5 : 1);
         }, 0);
 }
 
