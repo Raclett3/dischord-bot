@@ -70,8 +70,14 @@ export function compose(source: string): Buffer {
                 const lengthString = token.slice(scale.length) || defaultNoteLength;
                 const noteLength = Math.floor(parseLength(lengthString, tempo) * sampling);
                 const frequency = frequencyScale[scale] * (2 ** octave);
+                let gate = false;
 
                 for (let i = 0; i < noteLength; i++) {
+                    if (gate) {
+                        pushOverride(position + i, 0);
+                        continue;
+                    }
+
                     const value =
                         waveType === "square50" ? waves.square(frequency, i / sampling, 0.5) :
                         waveType === "square25" ? waves.square(frequency, i / sampling, 0.25) :
@@ -81,6 +87,10 @@ export function compose(source: string): Buffer {
                         waveType === "sine" ? waves.sine(frequency, i / sampling) :
                         waveType === "whitenoise" ? waves.whiteNoise() : 0;
                     pushOverride(position + i, value * volume);
+
+                    if (noteLength - i < sampling / frequency && Math.abs(value) < 0.05) {
+                        gate = true;
+                    }
                 }
                 position += noteLength;
                 break;
