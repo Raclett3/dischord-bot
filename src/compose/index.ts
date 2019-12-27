@@ -42,12 +42,12 @@ export function compose(source: string): Buffer {
         }
     }
 
-    const tokens = source.match(/([a-g][+-]?|r)[0-9]*\.?(&[0-9]*\.?)*|[<>]/g) || [];
+    const tokens = source.match(/([a-g][+-]?|r)[0-9]*\.?(&[0-9]*\.?)*|[<>]|t[0-9]+(\.[0-9]+)?/g) || [];
     const sampling = 44100;
     const composed: number[] = [];
     let length = 0;
     let position = 0;
-    const tempo = 120;
+    let tempo = 120;
     let octave = 0;
 
     for (const token of tokens) {
@@ -81,6 +81,11 @@ export function compose(source: string): Buffer {
 
             case token === ">": {
                 octave--;
+                break;
+            }
+
+            case token[0] === "t": {
+                tempo = parseFloat(token.slice(1));
                 break;
             }
         }
