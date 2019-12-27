@@ -56,7 +56,7 @@ export function compose(source: string): Buffer {
         }
     }
 
-    const pattern = /([a-g][+-]?|r)[0-9]*\.?(&[0-9]*\.?)*|[<>\[]|\][0-9]*|[tv][0-9]+(\.[0-9]+)?|l[0-9]+\.?(&[0-9]+\.?)*|@[0-9]+/g;
+    const pattern = /([a-g][+-]?|r)\d*\.?(&\d*\.?)*|[<>\[]|\]\d*|[tv]\d+(\.\d+)?|l\d+\.?(&\d+\.?)*|@\d+|@e\d+,\d+,\d+,\d+/g;
     const tokens = source.match(pattern) || [];
     const sampling = 44100;
     const composed: number[] = [];
@@ -69,6 +69,11 @@ export function compose(source: string): Buffer {
     let defaultNoteLength = "8";
     let waveType: Wave = "square50";
 
+    let attack = 0;
+    let decay = 0;
+    let sustain = 1;
+    let release = 0;
+
     for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
         const token = tokens[tokenIndex];
         switch (true) {
@@ -79,11 +84,21 @@ export function compose(source: string): Buffer {
                 const frequency = frequencyScale[scale] * (2 ** octave);
                 let gate = false;
 
-                for (let i = 0; i < noteLength; i++) {
+                const attackLength = Math.floor(attack * sampling);
+                const decayLength = Math.floor(decay * sampling);
+                const releaseLength = Math.floor(release * sampling);
+
+                for (let i = 0; i < noteLength + releaseLength; i++) {
                     if (gate) {
                         pushOverride(position + i, 0);
                         continue;
                     }
+
+                    const envelope =
+                            attackLength > i ? i / attackLength :
+                            decayLength > i - attackLength ? 1 - (1 - sustain) * (i - attackLength) / decayLength :
+                            noteLength <= i ? sustain * (noteLength + releaseLength - i) / releaseLength :
+                            sustain;
 
                     const value =
                         waveType === "square50" ? waves.square(frequency, i / sampling, 0.5) :
@@ -93,9 +108,9 @@ export function compose(source: string): Buffer {
                         waveType === "saw" ? waves.saw(frequency, i / sampling) :
                         waveType === "sine" ? waves.sine(frequency, i / sampling) :
                         waveType === "whitenoise" ? waves.whiteNoise() : 0;
-                    pushOverride(position + i, value * volume);
+                    pushOverride(position + i, value * volume * envelope);
 
-                    if (noteLength - i < sampling / frequency && Math.abs(value) < 0.05) {
+                    if (noteLength + releaseLength - i < sampling / frequency && Math.abs(value) < 0.05) {
                         gate = true;
                     }
                 }
@@ -136,6 +151,11 @@ export function compose(source: string): Buffer {
 
             case token[0] === "v": {
                 volume = parseFloat(token.slice(1)) / 100;
+                break;
+            }
+
+            case token.slice(0, 2) === "@e": {
+                [attack, decay, sustain, release] = token.slice(2).split(",").map((param) => parseInt(param, 10) / 100);
                 break;
             }
 
