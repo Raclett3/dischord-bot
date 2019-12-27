@@ -1,5 +1,14 @@
 import * as waves from "./waves";
 
+type Wave =
+    "square50" |
+    "square25" |
+    "square12.5" |
+    "triangle" |
+    "saw" |
+    "sine" |
+    "whitenoise";
+
 const frequencyScale: {[key: string]: number} = {
     "c-":  493.883,
     "c" :  523.251,
@@ -42,7 +51,7 @@ export function compose(source: string): Buffer {
         }
     }
 
-    const pattern = /([a-g][+-]?|r)[0-9]*\.?(&[0-9]*\.?)*|[<>]|[tv][0-9]+(\.[0-9]+)?|l[0-9]+\.?(&[0-9]+\.?)*/g;
+    const pattern = /([a-g][+-]?|r)[0-9]*\.?(&[0-9]*\.?)*|[<>]|[tv][0-9]+(\.[0-9]+)?|l[0-9]+\.?(&[0-9]+\.?)*|@[0-9]+/g;
     const tokens = source.match(pattern) || [];
     const sampling = 44100;
     const composed: number[] = [];
@@ -52,6 +61,7 @@ export function compose(source: string): Buffer {
     let octave = 0;
     let volume = 0.5;
     let defaultNoteLength = "8";
+    let waveType: Wave = "square50";
 
     for (const token of tokens) {
         switch (true) {
@@ -61,8 +71,16 @@ export function compose(source: string): Buffer {
                 const noteLength = Math.floor(parseLength(lengthString, tempo) * sampling);
                 const frequency = frequencyScale[scale] * (2 ** octave);
 
-                for (let i = 0; i <= noteLength; i++) {
-                    pushOverride(position + i, waves.sine(frequency, i / sampling) * volume);
+                for (let i = 0; i < noteLength; i++) {
+                    const value =
+                        waveType === "square50" ? waves.square(frequency, i / sampling, 0.5) :
+                        waveType === "square25" ? waves.square(frequency, i / sampling, 0.25) :
+                        waveType === "square12.5" ? waves.square(frequency, i / sampling, 0.125) :
+                        waveType === "triangle" ? waves.triangle(frequency, i / sampling) :
+                        waveType === "saw" ? waves.saw(frequency, i / sampling) :
+                        waveType === "sine" ? waves.sine(frequency, i / sampling) :
+                        waveType === "whitenoise" ? waves.whiteNoise() : 0;
+                    pushOverride(position + i, value * volume);
                 }
                 position += noteLength;
                 break;
@@ -101,6 +119,20 @@ export function compose(source: string): Buffer {
 
             case token[0] === "v": {
                 volume = parseFloat(token.slice(1)) / 100;
+                break;
+            }
+
+            case token[0] === "@": {
+                const waveTypes: Wave[] = [
+                    "square50",
+                    "square25",
+                    "square12.5",
+                    "triangle",
+                    "saw",
+                    "sine",
+                    "whitenoise",
+                ];
+                waveType = waveTypes[parseInt(token.slice(1), 10)] || "square50";
                 break;
             }
         }
