@@ -14,11 +14,11 @@ async function onMessage(message: Discord.Message) {
 
     const lowerContent = message.content.toLowerCase();
 
-    if (lowerContent.slice(0, 3) !== prefix) {
+    if (lowerContent.slice(0, prefix.length) !== prefix) {
         return;
     }
 
-    const command = (lowerContent.slice(3).match(/^[a-z]+/) || [""])[0];
+    const command = (lowerContent.slice(prefix.length).match(/^[a-z]+/) || [""])[0];
 
     switch (command) {
         case "help": {
@@ -43,7 +43,7 @@ async function onMessage(message: Discord.Message) {
 
         case "play": {
             send("生成しています。");
-            const composed = compose(lowerContent.slice(3 + command.length));
+            const composed = compose(lowerContent.slice(prefix.length + command.length));
             send("成功しました。", {
                 file: {
                     attachment: composed,
