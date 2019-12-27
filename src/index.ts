@@ -1,6 +1,25 @@
 import * as Discord from "discord.js";
 import {compose} from "./compose";
 
+function appendRiffHeader(buffer: Buffer, sampling = 44100) {
+    const header = Buffer.alloc(44);
+    const length = buffer.length;
+    header.write("RIFF", 0);
+    header.writeUInt32LE(length * 2 + 36, 4);
+    header.write("WAVEfmt ", 8);
+    header.writeUInt32LE(16, 16);
+    header.writeUInt16LE(1, 20);
+    header.writeUInt16LE(1, 22);
+    header.writeUInt32LE(sampling, 24);
+    header.writeUInt32LE(sampling * 2, 28);
+    header.writeUInt16LE(2, 32);
+    header.writeUInt16LE(16, 34);
+    header.write("data", 36);
+    header.writeUInt32LE(length * 2, 40);
+
+    return Buffer.concat([header, buffer]);
+}
+
 async function onMessage(message: Discord.Message) {
     function send(content: string, options?: Discord.MessageOptions) {
         message.channel.send(content, options);
@@ -50,7 +69,7 @@ async function onMessage(message: Discord.Message) {
             const composed = compose(lowerContent.slice(prefix.length + command.length));
             send("成功しました。", {
                 file: {
-                    attachment: composed,
+                    attachment: appendRiffHeader(composed),
                     name: "result.wav",
                 },
             });

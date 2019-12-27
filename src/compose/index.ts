@@ -58,7 +58,7 @@ function renderWave(waveType: Wave, frequency: number, offset: number) {
     );
 }
 
-export function compose(source: string): Buffer {
+export function compose(source: string, sampling = 44100): Buffer {
     function pushOverride(index: number, value: number) {
         if (index >= length) {
             composed.push(value);
@@ -70,7 +70,6 @@ export function compose(source: string): Buffer {
 
     const pattern = /([a-g][+-]?|r)\d*\.?(&\d*\.?)*|[<>\[]|\]\d*|[tv]\d+(\.\d+)?|l\d+\.?(&\d+\.?)*|@\d+|@e\d+,\d+,\d+,\d+|;|@u\d+,\d+/g;
     const tokens = source.match(pattern) || [];
-    const sampling = 44100;
     const composed: number[] = [];
     const stack: Stack[] = [];
     let length = 0;
@@ -242,23 +241,10 @@ export function compose(source: string): Buffer {
         }
     }
 
-    const headerLength = 44;
-    const buffer = Buffer.alloc(length * 2 + headerLength);
-    buffer.write("RIFF", 0);
-    buffer.writeUInt32LE(length * 2 + 36, 4);
-    buffer.write("WAVEfmt ", 8);
-    buffer.writeUInt32LE(16, 16);
-    buffer.writeUInt16LE(1, 20);
-    buffer.writeUInt16LE(1, 22);
-    buffer.writeUInt32LE(sampling, 24);
-    buffer.writeUInt32LE(sampling * 2, 28);
-    buffer.writeUInt16LE(2, 32);
-    buffer.writeUInt16LE(16, 34);
-    buffer.write("data", 36);
-    buffer.writeUInt32LE(length * 2, 40);
+    const buffer = Buffer.alloc(length * 2);
     composed.forEach((value, index) => {
         const data = Math.floor(Math.min(Math.max(-1, value), 1) * 0x7FFF);
-        buffer.writeInt16LE(data, index * 2 + headerLength);
+        buffer.writeInt16LE(data, index * 2);
     });
 
     return buffer;
