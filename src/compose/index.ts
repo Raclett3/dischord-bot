@@ -56,7 +56,7 @@ export function compose(source: string): Buffer {
         }
     }
 
-    const pattern = /([a-g][+-]?|r)\d*\.?(&\d*\.?)*|[<>\[]|\]\d*|[tv]\d+(\.\d+)?|l\d+\.?(&\d+\.?)*|@\d+|@e\d+,\d+,\d+,\d+/g;
+    const pattern = /([a-g][+-]?|r)\d*\.?(&\d*\.?)*|[<>\[]|\]\d*|[tv]\d+(\.\d+)?|l\d+\.?(&\d+\.?)*|@\d+|@e\d+,\d+,\d+,\d+|;/g;
     const tokens = source.match(pattern) || [];
     const sampling = 44100;
     const composed: number[] = [];
@@ -198,6 +198,20 @@ export function compose(source: string): Buffer {
                     tokenIndex = top.index;
                     stack.push(top);
                 }
+
+                break;
+            }
+
+            case token[0] === ";": {
+                position = 0;
+                octave = 0;
+                volume = 0.5;
+                defaultNoteLength = "8";
+                waveType = "square50";
+                attack = 0;
+                decay = 0;
+                sustain = 1;
+                release = 0;
 
                 break;
             }
