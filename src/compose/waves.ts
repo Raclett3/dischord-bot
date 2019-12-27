@@ -11,7 +11,7 @@ export function saw(frequency: number, position: number) {
 }
 
 export function triangle(frequency: number, position: number) {
-    return Math.acos(Math.cos(position * frequency * 2 * Math.PI)) / Math.PI * 2 - 1;
+    return Math.acos(Math.sin(position * frequency * 2 * Math.PI)) / Math.PI * 2 - 1;
 }
 
 export function whiteNoise() {
