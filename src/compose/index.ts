@@ -81,7 +81,48 @@ export function compose(source: string, sampling = 44100): Buffer {
         }
     }
 
-    const pattern = /([a-g][+-]?|r)\d*\.?(&\d*\.?)*|[<>\[]|\]\d*|[tv]\d+(\.\d+)?|l\d+\.?(&\d+\.?)*|@\d+|@e\d+,\d+,\d+,\d+|;|@u\d+,\d+|@h\d+(,\d+)*|#[a-z]\d+(\.\d+)?(,\d+(\.\d+)?)*/g;
+    function calcWave(frequencyList: number[], noteLength: number) {
+        let gate = false;
+
+        const attackLength = Math.min(Math.floor(attack * sampling), noteLength);
+        const decayLength = Math.min(Math.floor(decay * sampling), noteLength - attackLength);
+        const releaseLength = Math.floor(release * sampling);
+
+        for (let i = 0; i < noteLength + releaseLength; i++) {
+            if (gate) {
+                const value = applyEffects(renderWave("none", 0, i, harmony), effects) * volume;
+                pushOverride(position + i, value);
+                continue;
+            } else {
+                const envelope =
+                        attackLength > i ? i / attackLength :
+                        decayLength > i - attackLength ? 1 - (1 - sustain) * (i - attackLength) / decayLength :
+                        noteLength <= i ? sustain * (noteLength + releaseLength - i) / releaseLength :
+                        sustain;
+                let value = 0;
+
+                for (const frequency of frequencyList) {
+                    for (let j = 0; j < unisonCount; j++) {
+                        const unisonFrequency = unisonCount >= 2
+                                                ? (1 + unisonDetune / 10000) ** (-1 + j * 2 / (unisonCount - 1))
+                                                : 1;
+                        value += renderWave(waveType, frequency * unisonFrequency, i / sampling, harmony) / unisonCount;
+                    }
+                }
+
+                value *= volume * envelope;
+                value = applyEffects(value, effects);
+                pushOverride(position + i, value);
+
+                if (noteLength + releaseLength - i < 0.1 && Math.abs(value) < 0.05) {
+                    gate = true;
+                }
+            }
+        }
+        position += noteLength;
+    }
+
+    const pattern = /([a-g][+-]?|r)\d*\.?(&\d*\.?)*|[<>(\[]|[)\]]\d*|[tv]\d+(\.\d+)?|l\d+\.?(&\d+\.?)*|@\d+|@e\d+,\d+,\d+,\d+|;|@u\d+,\d+|@h\d+(,\d+)*|#[a-z]\d+(\.\d+)?(,\d+(\.\d+)?)*/g;
     const tokens = source.match(pattern) || [];
     const composed: number[] = [];
     const stack: Stack[] = [];
@@ -94,6 +135,8 @@ export function compose(source: string, sampling = 44100): Buffer {
     let waveType: Wave = "square50";
     let harmony: number[] = [];
     let effects: Effects.Effect[] = [];
+    let chord = false;
+    let chordFreq: number[] = [];
 
     let attack = 0;
     let decay = 0;
@@ -110,43 +153,13 @@ export function compose(source: string, sampling = 44100): Buffer {
                 const lengthString = token.slice(scale.length) || defaultNoteLength;
                 const noteLength = Math.floor(parseLength(lengthString, tempo) * sampling);
                 const frequency = frequencyScale[scale] * (2 ** octave);
-                let gate = false;
 
-                const attackLength = Math.min(Math.floor(attack * sampling), noteLength);
-                const decayLength = Math.min(Math.floor(decay * sampling), noteLength - attackLength);
-                const releaseLength = Math.floor(release * sampling);
-
-                for (let i = 0; i < noteLength + releaseLength; i++) {
-                    if (gate) {
-                        const value = applyEffects(renderWave("none", 0, i, harmony), effects) * volume;
-                        pushOverride(position + i, value);
-                        continue;
-                    } else {
-                        const envelope =
-                                attackLength > i ? i / attackLength :
-                                decayLength > i - attackLength ? 1 - (1 - sustain) * (i - attackLength) / decayLength :
-                                noteLength <= i ? sustain * (noteLength + releaseLength - i) / releaseLength :
-                                sustain;
-                        let value = 0;
-
-                        for (let j = 0; j < unisonCount; j++) {
-                            const unisonFrequency = unisonCount >= 2
-                                                    ? (1 + unisonDetune / 10000) ** (-1 + j * 2 / (unisonCount - 1))
-                                                    : 1;
-                            value += renderWave(
-                                        waveType, frequency * unisonFrequency, i / sampling, harmony) / unisonCount;
-                        }
-
-                        value *= volume * envelope;
-                        value = applyEffects(value, effects);
-                        pushOverride(position + i, value);
-
-                        if (noteLength + releaseLength - i < sampling / frequency && Math.abs(value) < 0.05) {
-                            gate = true;
-                        }
-                    }
+                if (chord) {
+                    chordFreq.push(frequency);
+                    break;
                 }
-                position += noteLength;
+
+                calcWave([frequency], noteLength);
                 break;
             }
 
@@ -242,6 +255,22 @@ export function compose(source: string, sampling = 44100): Buffer {
                     tokenIndex = top.index;
                     stack.push(top);
                 }
+
+                break;
+            }
+
+            case token[0] === "(": {
+                chordFreq = [];
+                chord = true;
+                break;
+            }
+
+            case token[0] === ")": {
+                const lengthString = token.slice(1) || defaultNoteLength;
+                const noteLength = Math.floor(parseLength(lengthString, tempo) * sampling);
+
+                calcWave(chordFreq, noteLength);
+                chord = false;
 
                 break;
             }
