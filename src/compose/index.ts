@@ -256,6 +256,18 @@ export function compose(source: string, sampling = 44100): Buffer {
 
                         break;
                     }
+
+                    case "h": {
+                        if (params.length < 2) {
+                            break;
+                        }
+
+                        const cutOff = params[0];
+                        const resonance = params[1] / 100 + (1 / Math.sqrt(2));
+                        effects.push(new Effects.HighPassFilter(cutOff, resonance, sampling));
+
+                        break;
+                    }
                 }
 
                 break;
