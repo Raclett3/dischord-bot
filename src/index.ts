@@ -103,6 +103,7 @@ async function onMessage(message: Discord.Message) {
                 `${prefix}help Dischordのヘルプを表示`,
                 `${prefix}play [MML] MMLを音声ファイルに書き出し`,
                 `${prefix}vcplay [MML] MMLをVCで再生`,
+                `${prefix}playraw [MML] MMLをwavファイルとして書き出し`,
                 "Dischord MML 文法",
                 "以下の文字列を連ねて記述します。",
                 "CDEFGABR ドレミファソラシと休符に対応しています。数字を後ろにつけるとn分音符を表現します。",
@@ -131,6 +132,18 @@ async function onMessage(message: Discord.Message) {
                 file: {
                     attachment: await convertToMp3(appendRiffHeader(composed)),
                     name: "result.mp3",
+                },
+            });
+            break;
+        }
+
+        case "playraw": {
+            send("生成しています。");
+            const composed = compose(lowerContent.slice(prefix.length + command.length));
+            send("成功しました。", {
+                file: {
+                    attachment: appendRiffHeader(composed),
+                    name: "result.wav",
                 },
             });
             break;
