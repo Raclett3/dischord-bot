@@ -69,3 +69,17 @@ export class HighPassFilter implements Effect {
         return output;
     }
 }
+
+export class Echo implements Effect {
+    private old: number[];
+
+    constructor(private feedBack: number, delay: number) {
+        this.old = Array(delay).fill(0);
+    }
+
+    public apply(input: number) {
+        const output = input + this.old.shift()! * this.feedBack;
+        this.old.push(output);
+        return output;
+    }
+}

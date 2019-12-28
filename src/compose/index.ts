@@ -271,6 +271,18 @@ export function compose(source: string, sampling = 44100): Buffer {
 
                         break;
                     }
+
+                    case "e": {
+                        if (params.length < 2) {
+                            break;
+                        }
+
+                        const feedBack = Math.min(params[0] / 100, 1);
+                        const delay = Math.floor(params[1] * sampling);
+                        effects.push(new Effects.Echo(feedBack, delay));
+
+                        break;
+                    }
                 }
 
                 break;
