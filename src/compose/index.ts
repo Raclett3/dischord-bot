@@ -114,7 +114,7 @@ export function compose(source: string, sampling = 44100): Buffer {
                 value = applyEffects(value, effects);
                 pushOverride(position + i, value);
 
-                if (noteLength + releaseLength - i < 0.1 && Math.abs(value) < 0.05) {
+                if (noteLength + releaseLength - i < 0.01 * sampling && Math.abs(value) < 0.05) {
                     gate = true;
                 }
             }
