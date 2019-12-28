@@ -12,7 +12,8 @@ type Wave =
     "triangle" |
     "saw" |
     "sine" |
-    "whitenoise";
+    "whitenoise" |
+    "sineharmony";
 
 const frequencyScale: {[key: string]: number} = {
     "c-":  493.883,
@@ -46,7 +47,12 @@ function parseLength(length: string, tempo: number) {
         }, 0);
 }
 
-function renderWave(waveType: Wave, frequency: number, offset: number) {
+function renderWave(waveType: Wave, frequency: number, offset: number, harmony: number[]) {
+    function renderHarmony() {
+        return harmony.reduce(
+                    (acc, volume, index) => acc + waves.sine(frequency * (index + 1), offset) * volume, 0);
+    }
+
     return (
         waveType === "square50" ? waves.square(frequency, offset, 0.5) :
         waveType === "square25" ? waves.square(frequency, offset, 0.25) :
@@ -54,7 +60,8 @@ function renderWave(waveType: Wave, frequency: number, offset: number) {
         waveType === "triangle" ? waves.triangle(frequency, offset) :
         waveType === "saw" ? waves.saw(frequency, offset) :
         waveType === "sine" ? waves.sine(frequency, offset) :
-        waveType === "whitenoise" ? waves.whiteNoise() : 0
+        waveType === "whitenoise" ? waves.whiteNoise() :
+        waveType === "sineharmony" ? renderHarmony() / harmony.length : 0
     );
 }
 
@@ -68,7 +75,7 @@ export function compose(source: string, sampling = 44100): Buffer {
         }
     }
 
-    const pattern = /([a-g][+-]?|r)\d*\.?(&\d*\.?)*|[<>\[]|\]\d*|[tv]\d+(\.\d+)?|l\d+\.?(&\d+\.?)*|@\d+|@e\d+,\d+,\d+,\d+|;|@u\d+,\d+/g;
+    const pattern = /([a-g][+-]?|r)\d*\.?(&\d*\.?)*|[<>\[]|\]\d*|[tv]\d+(\.\d+)?|l\d+\.?(&\d+\.?)*|@\d+|@e\d+,\d+,\d+,\d+|;|@u\d+,\d+|@h\d+(,\d+)*/g;
     const tokens = source.match(pattern) || [];
     const composed: number[] = [];
     const stack: Stack[] = [];
@@ -79,6 +86,7 @@ export function compose(source: string, sampling = 44100): Buffer {
     let volume = 0.5;
     let defaultNoteLength = "8";
     let waveType: Wave = "square50";
+    let harmony: number[] = [];
 
     let attack = 0;
     let decay = 0;
@@ -114,7 +122,7 @@ export function compose(source: string, sampling = 44100): Buffer {
                             sustain;
 
                     if (unisonCount <= 1) {
-                        const value = renderWave(waveType, frequency, i / sampling);
+                        const value = renderWave(waveType, frequency, i / sampling, harmony);
                         pushOverride(position + i, value * volume * envelope);
 
                         if (noteLength + releaseLength - i < sampling / frequency && Math.abs(value) < 0.05) {
@@ -126,7 +134,7 @@ export function compose(source: string, sampling = 44100): Buffer {
 
                     for (let j = 0; j < unisonCount; j++) {
                         const unisonFrequency = (1 + unisonDetune / 10000) ** (-1 + j * 2 / (unisonCount - 1));
-                        const value = renderWave(waveType, frequency * unisonFrequency, i / sampling);
+                        const value = renderWave(waveType, frequency * unisonFrequency, i / sampling, harmony);
                         pushOverride(position + i, value * volume * envelope / unisonCount);
                     }
                 }
@@ -172,6 +180,12 @@ export function compose(source: string, sampling = 44100): Buffer {
 
             case token.slice(0, 2) === "@e": {
                 [attack, decay, sustain, release] = token.slice(2).split(",").map((param) => parseInt(param, 10) / 100);
+                break;
+            }
+
+            case token.slice(0, 2) === "@h": {
+                waveType = "sineharmony";
+                harmony = token.slice(2).split(",").map((param) => parseInt(param, 10) / 100);
                 break;
             }
 
