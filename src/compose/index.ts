@@ -93,7 +93,7 @@ export function compose(source: string, sampling = 44100): Buffer {
     let defaultNoteLength = "8";
     let waveType: Wave = "square50";
     let harmony: number[] = [];
-    const effects: Effects.Effect[] = [];
+    let effects: Effects.Effect[] = [];
 
     let attack = 0;
     let decay = 0;
@@ -303,6 +303,7 @@ export function compose(source: string, sampling = 44100): Buffer {
                 release = 0;
                 unisonCount = 0;
                 unisonDetune = 0;
+                effects = [];
 
                 break;
             }
