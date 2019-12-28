@@ -49,13 +49,13 @@ function parseLength(length: string, tempo: number) {
         }, 0);
 }
 
-function renderWave(waveType: Wave, frequency: number, offset: number, harmony: number[], effects: Effects.Effect[]) {
+function renderWave(waveType: Wave, frequency: number, offset: number, harmony: number[]) {
     function renderHarmony() {
         return harmony.reduce(
                     (acc, volume, index) => acc + waves.sine(frequency * (index + 1), offset) * volume, 0);
     }
 
-    const value =
+    return (
         waveType === "square50" ? waves.square(frequency, offset, 0.5) :
         waveType === "square25" ? waves.square(frequency, offset, 0.25) :
         waveType === "square12.5" ? waves.square(frequency, offset, 0.125) :
@@ -63,9 +63,12 @@ function renderWave(waveType: Wave, frequency: number, offset: number, harmony: 
         waveType === "saw" ? waves.saw(frequency, offset) :
         waveType === "sine" ? waves.sine(frequency, offset) :
         waveType === "whitenoise" ? waves.whiteNoise() :
-        waveType === "sineharmony" ? renderHarmony() / harmony.length : 0;
+        waveType === "sineharmony" ? renderHarmony() / harmony.length : 0
+    );
+}
 
-    return effects.reduce((acc, effect) => effect.apply(acc), value);
+function applyEffects(input: number, effects: Effects.Effect[]) {
+    return effects.reduce((acc, effect) => effect.apply(acc), input);
 }
 
 export function compose(source: string, sampling = 44100): Buffer {
@@ -96,7 +99,7 @@ export function compose(source: string, sampling = 44100): Buffer {
     let decay = 0;
     let sustain = 1;
     let release = 0;
-    let unisonCount = 0;
+    let unisonCount = 1;
     let unisonDetune = 0;
 
     for (let tokenIndex = 0; tokenIndex < tokens.length; tokenIndex++) {
@@ -115,32 +118,31 @@ export function compose(source: string, sampling = 44100): Buffer {
 
                 for (let i = 0; i < noteLength + releaseLength; i++) {
                     if (gate) {
-                        const value = renderWave("none", 0, i, harmony, effects);
+                        const value = applyEffects(renderWave("none", 0, i, harmony), effects);
                         pushOverride(position + i, value);
                         continue;
-                    }
+                    } else {
+                        const envelope =
+                                attackLength > i ? i / attackLength :
+                                decayLength > i - attackLength ? 1 - (1 - sustain) * (i - attackLength) / decayLength :
+                                noteLength <= i ? sustain * (noteLength + releaseLength - i) / releaseLength :
+                                sustain;
+                        let value = 0;
 
-                    const envelope =
-                            attackLength > i ? i / attackLength :
-                            decayLength > i - attackLength ? 1 - (1 - sustain) * (i - attackLength) / decayLength :
-                            noteLength <= i ? sustain * (noteLength + releaseLength - i) / releaseLength :
-                            sustain;
+                        for (let j = 0; j < unisonCount; j++) {
+                            const unisonFrequency = unisonCount >= 2
+                                                    ? (1 + unisonDetune / 10000) ** (-1 + j * 2 / (unisonCount - 1))
+                                                    : 1;
+                            value += renderWave(
+                                        waveType, frequency * unisonFrequency, i / sampling, harmony) / unisonCount;
+                        }
 
-                    if (unisonCount <= 1) {
-                        const value = renderWave(waveType, frequency, i / sampling, harmony, effects);
+                        value = applyEffects(value, effects);
                         pushOverride(position + i, value * volume * envelope);
 
                         if (noteLength + releaseLength - i < sampling / frequency && Math.abs(value) < 0.05) {
                             gate = true;
                         }
-
-                        continue;
-                    }
-
-                    for (let j = 0; j < unisonCount; j++) {
-                        const unisonFrequency = (1 + unisonDetune / 10000) ** (-1 + j * 2 / (unisonCount - 1));
-                        const value = renderWave(waveType, frequency * unisonFrequency, i / sampling, harmony, effects);
-                        pushOverride(position + i, value * volume * envelope / unisonCount);
                     }
                 }
                 position += noteLength;
@@ -152,7 +154,7 @@ export function compose(source: string, sampling = 44100): Buffer {
                 const noteLength = Math.floor(parseLength(lengthString, tempo) * sampling);
 
                 for (let i = 0; i <= noteLength; i++) {
-                    const value = renderWave("none", 0, i, harmony, effects);
+                    const value = applyEffects(renderWave("none", 0, i, harmony), effects);
                     pushOverride(position + i, value);
                 }
                 position += noteLength;
