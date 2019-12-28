@@ -1,3 +1,4 @@
+import * as Effects from "./effects";
 import * as waves from "./waves";
 
 type Stack = {
@@ -47,13 +48,13 @@ function parseLength(length: string, tempo: number) {
         }, 0);
 }
 
-function renderWave(waveType: Wave, frequency: number, offset: number, harmony: number[]) {
+function renderWave(waveType: Wave, frequency: number, offset: number, harmony: number[], effects: Effects.Effect[]) {
     function renderHarmony() {
         return harmony.reduce(
                     (acc, volume, index) => acc + waves.sine(frequency * (index + 1), offset) * volume, 0);
     }
 
-    return (
+    const value =
         waveType === "square50" ? waves.square(frequency, offset, 0.5) :
         waveType === "square25" ? waves.square(frequency, offset, 0.25) :
         waveType === "square12.5" ? waves.square(frequency, offset, 0.125) :
@@ -61,8 +62,9 @@ function renderWave(waveType: Wave, frequency: number, offset: number, harmony: 
         waveType === "saw" ? waves.saw(frequency, offset) :
         waveType === "sine" ? waves.sine(frequency, offset) :
         waveType === "whitenoise" ? waves.whiteNoise() :
-        waveType === "sineharmony" ? renderHarmony() / harmony.length : 0
-    );
+        waveType === "sineharmony" ? renderHarmony() / harmony.length : 0;
+
+    return effects.reduce((acc, effect) => effect.apply(acc), value);
 }
 
 export function compose(source: string, sampling = 44100): Buffer {
@@ -87,6 +89,7 @@ export function compose(source: string, sampling = 44100): Buffer {
     let defaultNoteLength = "8";
     let waveType: Wave = "square50";
     let harmony: number[] = [];
+    const effects: Effects.Effect[] = [];
 
     let attack = 0;
     let decay = 0;
@@ -122,7 +125,7 @@ export function compose(source: string, sampling = 44100): Buffer {
                             sustain;
 
                     if (unisonCount <= 1) {
-                        const value = renderWave(waveType, frequency, i / sampling, harmony);
+                        const value = renderWave(waveType, frequency, i / sampling, harmony, effects);
                         pushOverride(position + i, value * volume * envelope);
 
                         if (noteLength + releaseLength - i < sampling / frequency && Math.abs(value) < 0.05) {
@@ -134,7 +137,7 @@ export function compose(source: string, sampling = 44100): Buffer {
 
                     for (let j = 0; j < unisonCount; j++) {
                         const unisonFrequency = (1 + unisonDetune / 10000) ** (-1 + j * 2 / (unisonCount - 1));
-                        const value = renderWave(waveType, frequency * unisonFrequency, i / sampling, harmony);
+                        const value = renderWave(waveType, frequency * unisonFrequency, i / sampling, harmony, effects);
                         pushOverride(position + i, value * volume * envelope / unisonCount);
                     }
                 }
