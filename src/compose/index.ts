@@ -71,16 +71,15 @@ function applyEffects(input: number, effects: Effects.Effect[]) {
     return effects.reduce((acc, effect) => effect.apply(acc), input);
 }
 
-export function compose(source: string, sampling = 44100): Buffer {
-    function pushOverride(index: number, value: number) {
-        if (index >= length) {
-            composed.push(value);
-            length++;
-        } else {
-            composed[index] += value;
-        }
+function pushOverride(array: number[], index: number, value: number) {
+    if (index >= array.length) {
+        array.push(value);
+    } else {
+        array[index] += value;
     }
+}
 
+export function compose(source: string, sampling = 44100): Buffer {
     function calcWave(frequencyList: number[], noteLength: number) {
         let gate = false;
 
@@ -90,8 +89,8 @@ export function compose(source: string, sampling = 44100): Buffer {
 
         for (let i = 0; i < noteLength + releaseLength; i++) {
             if (gate) {
-                const value = applyEffects(renderWave("none", 0, i, harmony), effects) * volume;
-                pushOverride(position + i, value);
+                const value = renderWave("none", 0, i, harmony);
+                pushOverride(currentChannel, position + i, value);
                 continue;
             } else {
                 const envelope =
@@ -110,9 +109,7 @@ export function compose(source: string, sampling = 44100): Buffer {
                     }
                 }
 
-                value *= volume * envelope;
-                value = applyEffects(value, effects);
-                pushOverride(position + i, value);
+                pushOverride(currentChannel, position + i, value * volume * envelope);
 
                 if (noteLength + releaseLength - i < 0.01 * sampling && Math.abs(value) < 0.05) {
                     gate = true;
@@ -125,8 +122,8 @@ export function compose(source: string, sampling = 44100): Buffer {
     const pattern = /([a-g][+-]?|r)\d*\.?(&\d*\.?)*|[<>(\[]|[)\]]\d*|[tv]\d+(\.\d+)?|l\d+\.?(&\d+\.?)*|@\d+|@e\d+,\d+,\d+,\d+|;|@u\d+,\d+|@h\d+(,\d+)*|#[a-z]\d+(\.\d+)?(,\d+(\.\d+)?)*/g;
     const tokens = source.match(pattern) || [];
     const composed: number[] = [];
+    const currentChannel: number[] = [];
     const stack: Stack[] = [];
-    let length = 0;
     let position = 0;
     let tempo = 120;
     let octave = 0;
@@ -167,11 +164,7 @@ export function compose(source: string, sampling = 44100): Buffer {
                 const lengthString = token.slice(1) || defaultNoteLength;
                 const noteLength = Math.floor(parseLength(lengthString, tempo) * sampling);
 
-                for (let i = 0; i <= noteLength; i++) {
-                    const value = applyEffects(renderWave("none", 0, i, harmony), effects) * volume;
-                    pushOverride(position + i, value);
-                }
-                position += noteLength;
+                calcWave([], noteLength);
                 break;
             }
 
@@ -333,13 +326,19 @@ export function compose(source: string, sampling = 44100): Buffer {
                 unisonCount = 1;
                 unisonDetune = 0;
                 effects = [];
+                calcWave([], sampling);
+                currentChannel.forEach((value, index) => pushOverride(composed, index, applyEffects(value, effects)));
+                currentChannel.length = 0;
 
                 break;
             }
         }
     }
 
-    const buffer = Buffer.alloc(length * 2);
+    release = 0;
+    calcWave([], sampling);
+    currentChannel.forEach((value, index) => pushOverride(composed, index, applyEffects(value, effects)));
+    const buffer = Buffer.alloc(composed.length * 2);
     composed.forEach((value, index) => {
         const data = Math.floor(Math.min(Math.max(-1, value), 1) * 0x7FFF);
         buffer.writeInt16LE(data, index * 2);
