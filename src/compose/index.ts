@@ -118,7 +118,7 @@ export function compose(source: string, sampling = 44100): Buffer {
 
                 for (let i = 0; i < noteLength + releaseLength; i++) {
                     if (gate) {
-                        const value = applyEffects(renderWave("none", 0, i, harmony), effects);
+                        const value = applyEffects(renderWave("none", 0, i, harmony), effects) * volume;
                         pushOverride(position + i, value);
                         continue;
                     } else {
@@ -137,8 +137,9 @@ export function compose(source: string, sampling = 44100): Buffer {
                                         waveType, frequency * unisonFrequency, i / sampling, harmony) / unisonCount;
                         }
 
+                        value *= volume * envelope;
                         value = applyEffects(value, effects);
-                        pushOverride(position + i, value * volume * envelope);
+                        pushOverride(position + i, value);
 
                         if (noteLength + releaseLength - i < sampling / frequency && Math.abs(value) < 0.05) {
                             gate = true;
@@ -154,7 +155,7 @@ export function compose(source: string, sampling = 44100): Buffer {
                 const noteLength = Math.floor(parseLength(lengthString, tempo) * sampling);
 
                 for (let i = 0; i <= noteLength; i++) {
-                    const value = applyEffects(renderWave("none", 0, i, harmony), effects);
+                    const value = applyEffects(renderWave("none", 0, i, harmony), effects) * volume;
                     pushOverride(position + i, value);
                 }
                 position += noteLength;
