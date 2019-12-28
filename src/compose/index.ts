@@ -112,8 +112,8 @@ export function compose(source: string, sampling = 44100): Buffer {
                 const frequency = frequencyScale[scale] * (2 ** octave);
                 let gate = false;
 
-                const attackLength = Math.floor(attack * sampling);
-                const decayLength = Math.floor(decay * sampling);
+                const attackLength = Math.min(Math.floor(attack * sampling), noteLength);
+                const decayLength = Math.min(Math.floor(decay * sampling), noteLength - attackLength);
                 const releaseLength = Math.floor(release * sampling);
 
                 for (let i = 0; i < noteLength + releaseLength; i++) {
