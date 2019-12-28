@@ -77,7 +77,7 @@ export function compose(source: string, sampling = 44100): Buffer {
         }
     }
 
-    const pattern = /([a-g][+-]?|r)\d*\.?(&\d*\.?)*|[<>\[]|\]\d*|[tv]\d+(\.\d+)?|l\d+\.?(&\d+\.?)*|@\d+|@e\d+,\d+,\d+,\d+|;|@u\d+,\d+|@h\d+(,\d+)*/g;
+    const pattern = /([a-g][+-]?|r)\d*\.?(&\d*\.?)*|[<>\[]|\]\d*|[tv]\d+(\.\d+)?|l\d+\.?(&\d+\.?)*|@\d+|@e\d+,\d+,\d+,\d+|;|@u\d+,\d+|@h\d+(,\d+)*|#[a-z]\d+(\.\d+)?(,\d+(\.\d+)?)*/g;
     const tokens = source.match(pattern) || [];
     const composed: number[] = [];
     const stack: Stack[] = [];
@@ -235,6 +235,27 @@ export function compose(source: string, sampling = 44100): Buffer {
                 if (top.count > 0) {
                     tokenIndex = top.index;
                     stack.push(top);
+                }
+
+                break;
+            }
+
+            case token[0] === "#": {
+                const effectName = token[1];
+                const params = token.slice(2).split(",").map((param) => parseFloat(param));
+
+                switch (effectName) {
+                    case "l": {
+                        if (params.length < 2) {
+                            break;
+                        }
+
+                        const cutOff = params[0];
+                        const resonance = params[1] / 100 + (1 / Math.sqrt(2));
+                        effects.push(new Effects.LowPassFilter(cutOff, resonance, sampling));
+
+                        break;
+                    }
                 }
 
                 break;
