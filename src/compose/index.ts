@@ -14,7 +14,8 @@ type Wave =
     "saw" |
     "sine" |
     "whitenoise" |
-    "sineharmony";
+    "sineharmony" |
+    "none";
 
 const frequencyScale: {[key: string]: number} = {
     "c-":  493.883,
@@ -114,7 +115,8 @@ export function compose(source: string, sampling = 44100): Buffer {
 
                 for (let i = 0; i < noteLength + releaseLength; i++) {
                     if (gate) {
-                        pushOverride(position + i, 0);
+                        const value = renderWave("none", 0, i, harmony, effects);
+                        pushOverride(position + i, value);
                         continue;
                     }
 
@@ -150,7 +152,8 @@ export function compose(source: string, sampling = 44100): Buffer {
                 const noteLength = Math.floor(parseLength(lengthString, tempo) * sampling);
 
                 for (let i = 0; i <= noteLength; i++) {
-                    pushOverride(position + i, 0);
+                    const value = renderWave("none", 0, i, harmony, effects);
+                    pushOverride(position + i, value);
                 }
                 position += noteLength;
                 break;
