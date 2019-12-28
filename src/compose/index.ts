@@ -330,7 +330,7 @@ export function compose(source: string, sampling = 44100): Buffer {
                 decay = 0;
                 sustain = 1;
                 release = 0;
-                unisonCount = 0;
+                unisonCount = 1;
                 unisonDetune = 0;
                 effects = [];
 
