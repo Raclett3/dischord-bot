@@ -323,6 +323,9 @@ export function compose(source: string, sampling = 44100): Buffer {
             }
 
             case token[0] === ";": {
+                calcWave([], sampling);
+                currentChannel.forEach((value, index) => pushOverride(composed, index, applyEffects(value, effects)));
+                currentChannel.length = 0;
                 position = 0;
                 octave = 0;
                 volume = 0.5;
@@ -335,9 +338,6 @@ export function compose(source: string, sampling = 44100): Buffer {
                 unisonCount = 1;
                 unisonDetune = 0;
                 effects = [];
-                calcWave([], sampling);
-                currentChannel.forEach((value, index) => pushOverride(composed, index, applyEffects(value, effects)));
-                currentChannel.length = 0;
 
                 break;
             }
