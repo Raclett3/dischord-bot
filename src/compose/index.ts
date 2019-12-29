@@ -15,6 +15,9 @@ type Wave =
     "sine" |
     "whitenoise" |
     "sineharmony" |
+    "naturalsquare50" |
+    "naturalsquare25" |
+    "naturalsquare12.5" |
     "none";
 
 const frequencyScale: {[key: string]: number} = {
@@ -63,7 +66,10 @@ function renderWave(waveType: Wave, frequency: number, offset: number, harmony: 
         waveType === "saw" ? waves.saw(frequency, offset) :
         waveType === "sine" ? waves.sine(frequency, offset) :
         waveType === "whitenoise" ? waves.whiteNoise() :
-        waveType === "sineharmony" ? renderHarmony() / harmony.length : 0
+        waveType === "sineharmony" ? renderHarmony() / harmony.length :
+        waveType === "naturalsquare50" ? waves.naturalSquare(frequency, offset, 0.5) :
+        waveType === "naturalsquare25" ? waves.naturalSquare(frequency, offset, 0.25) :
+        waveType === "naturalsquare12.5" ? waves.naturalSquare(frequency, offset, 0.125) : 0
     );
 }
 
@@ -218,6 +224,9 @@ export function compose(source: string, sampling = 44100): Buffer {
                     "saw",
                     "sine",
                     "whitenoise",
+                    "naturalsquare50",
+                    "naturalsquare25",
+                    "naturalsquare12.5",
                 ];
                 waveType = waveTypes[parseInt(token.slice(1), 10)] || "square50";
                 break;
